@@ -10,6 +10,14 @@
 
 import BaseEventHandler from './BaseEventHandler';
 
+import BpmnModdle from 'bpmn-moddle';
+
+import CamundaBpmnModdle from 'camunda-bpmn-moddle/resources/camunda';
+
+import {
+  getProcessVariables
+} from '@bpmn-io/extract-process-variables';
+
 const RELEVANT_TAB_TYPES = ['bpmn', 'dmn'];
 
 // Sends a deployment event to ET everytime when a user triggers a deploy to
@@ -28,11 +36,23 @@ export default class DeploymentEventHandler extends BaseEventHandler {
 
   // @pinussilvestrus: empty for now, we will need this for further metrics
   // e.g. https://github.com/camunda/camunda-modeler/issues/1971
-  generateMetrics = (file) => {
-    return {};
+  generateMetrics = async (file, tabType) => {
+    let metrics = {};
+
+    if (!file) {
+      return metrics;
+    }
+
+    // (1) process variables (bpmn only)
+    if (tabType === 'bpmn') {
+      const processVariables = await extractProcessVariables(file);
+      metrics.processVariablesCount = processVariables.length;
+    }
+
+    return metrics;
   }
 
-  handleDeployment = (context) => {
+  handleDeployment = async (context) => {
     const {
       error,
       tab,
@@ -58,7 +78,7 @@ export default class DeploymentEventHandler extends BaseEventHandler {
     const outcome = error ? error.code : 'success';
 
     // (3) generate diagram related metrics, e.g. process variables
-    const diagramMetrics = this.generateMetrics(file);
+    const diagramMetrics = await this.generateMetrics(file, type);
 
     let payload = {
       deployment: {
@@ -76,4 +96,36 @@ export default class DeploymentEventHandler extends BaseEventHandler {
     this.sendToET(payload);
   }
 
+}
+
+// helpers ///////////////////////
+
+async function extractProcessVariables(file) {
+  const {
+    contents
+  } = file;
+
+  if (!contents) {
+    return [];
+  }
+
+  const definitions = await parse(contents);
+
+  const rootElement = getRootElement(definitions);
+
+  return getProcessVariables(rootElement);
+}
+
+async function parse(xml) {
+  const moddle = new BpmnModdle({
+    camunda: CamundaBpmnModdle,
+  });
+
+  const { rootElement: definitions } = await moddle.fromXML(xml);
+
+  return definitions;
+}
+
+function getRootElement(definitions) {
+  return definitions.get('rootElements')[0];
 }

@@ -12,9 +12,12 @@
 
 import DeploymentEventHandler from '../DeploymentEventHandler';
 
+import diagramXML from './fixtures/process-variables.bpmn';
+
 const EXAMPLE_ERROR = 'something went wrong';
 
 const SUCCESS_STATUS = 'success';
+
 
 describe('<DeploymentEventHandler>', () => {
 
@@ -58,7 +61,7 @@ describe('<DeploymentEventHandler>', () => {
       event: 'deployment',
       deployment: {
         diagramType: 'bpmn',
-        diagramMetrics: {},
+        diagramMetrics: { processVariablesCount: 0 },
         outcome: SUCCESS_STATUS
       }
     });
@@ -127,7 +130,7 @@ describe('<DeploymentEventHandler>', () => {
       event: 'deployment',
       deployment: {
         diagramType: 'bpmn',
-        diagramMetrics: {},
+        diagramMetrics: { processVariablesCount: 0 },
         outcome: EXAMPLE_ERROR
       }
     });
@@ -151,11 +154,68 @@ describe('<DeploymentEventHandler>', () => {
       event: 'deployment',
       deployment: {
         diagramType: 'bpmn',
-        diagramMetrics: {},
+        diagramMetrics: { processVariablesCount: 0 },
         isRun: true,
         outcome: SUCCESS_STATUS
       }
     });
+  });
+
+
+  describe('diagram metrics', () => {
+
+    it('should send process variables count', async () => {
+
+      // given
+      const tab = createTab({
+        type: 'bpmn',
+        file: {
+          contents: diagramXML
+        }
+      });
+
+      const handleDeploymentError = subscribe.getCall(1).args[1];
+
+      // when
+      await handleDeploymentError({ tab });
+
+      // then
+      expect(onSend).to.have.been.calledWith({
+        event: 'deployment',
+        deployment: {
+          diagramType: 'bpmn',
+          diagramMetrics: {
+            processVariablesCount: 3
+          },
+          outcome: SUCCESS_STATUS
+        }
+      });
+    });
+
+
+    it('should NOT send process variables count for dmn files', async () => {
+
+      // given
+      const tab = createTab({
+        type: 'dmn'
+      });
+
+      const handleDeploymentError = subscribe.getCall(1).args[1];
+
+      // when
+      await handleDeploymentError({ tab });
+
+      // then
+      expect(onSend).to.have.been.calledWith({
+        event: 'deployment',
+        deployment: {
+          diagramType: 'dmn',
+          diagramMetrics: { },
+          outcome: SUCCESS_STATUS
+        }
+      });
+    });
+
   });
 
 });
