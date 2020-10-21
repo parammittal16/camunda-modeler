@@ -18,3 +18,7 @@ This shows how to use plug into the modeler
 ### [Search Paths](./search-paths)
 
 This gives an overview about several local data paths
+
+### [Telemetry](./telemetry)
+
+This gives an overview about which data we send to our internal telemetry server
